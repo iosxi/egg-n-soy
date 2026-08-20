@@ -109,6 +109,13 @@
     fruit does now that a fruit pays twenty.                        */
 #define TIME_BONUS   3
 
+/*  a spare ball every ten thousand. the field holds for two seconds
+    while it is announced, and a blue ball flies from the middle of the
+    screen up to the counter in the corner, shrinking as it goes, so it
+    is plain where the extra one went.                               */
+#define BONUS_STEP  10000
+#define BONUS_LEN     120      /* two seconds of it                   */
+
 #define COMBO_WIN  150         /* two and a half seconds to chain     */
 #define COMBO_TOP    3         /* rungs on the ladder of multipliers  */
 #define MAXPOP      12         /* score popups on screen at once      */
@@ -1298,7 +1305,7 @@ static float comboMul(int n)
 
 static int    gCombo;       /* fruit taken so far in this chain  */
 static int    gComboT;      /* frames left to keep the chain     */
-static int    gScore, gHi = 20000, gLives, gLife, gStage, gLoop;
+static int    gScore, gHi = 10000, gLives, gLife, gStage, gLoop;
 static int    gTime, gTimeTick;
 static int    gGoalX, gGoalY;
 static int    gPlayerSX, gPlayerSY;
@@ -1316,6 +1323,8 @@ static float gCamX;
 static int   gShakeX, gDrawY0 = HUD_H;
 static int   gShakeT;            /* screen shake countdown          */
 static int   gFreeze;            /* hit stop: frames the field waits */
+static int   gBonusT;            /* frames left of the spare ball fanfare */
+static int   gBonusNext = BONUS_STEP;
 static int   gHurtT;             /* red wash after taking a hit      */
 
 static int   gMenuSel;           /* title menu row  */
@@ -2865,7 +2874,7 @@ static void loadStage(int idx)
     gTime = 330;                          /* the world got a lot wider */
     gTimeTick = 0;
     gCamX = wrapW(gPlayer.x + AW * 0.5f - SCR_W * 0.5f);
-    gShakeT = gFreeze = gHurtT = 0;
+    gShakeT = gFreeze = gHurtT = gBonusT = 0;
 }
 
 static void restartStage(void)
@@ -3787,6 +3796,7 @@ static void nextStage(void)
 static void startGame(void)
 {
     gScore = 0;
+    gBonusNext = BONUS_STEP;
     gLives = 3;
     gStage = 0;
     gLoop  = 0;
@@ -3993,6 +4003,7 @@ static void update(void)
         /*  hit stop: the whole field holds for a few frames when the
             player takes one, so the blow reads before the knock back
             starts moving.                                          */
+        if (gBonusT > 0) { gBonusT--; break; }
         if (gFreeze > 0) { gFreeze--; break; }
         popUpdate();
         updatePlayer();
@@ -4022,6 +4033,7 @@ static void update(void)
         break;
 
     case ST_CLEAR:
+        if (gBonusT > 0) { gBonusT--; break; }
         /*  the clock runs a lot longer than it used to, so the bonus is
             counted off four units a frame instead of one every three. */
         if (gStateT < 110 && gTime > 0) {
@@ -4047,6 +4059,15 @@ static void update(void)
     }
     if (gState == ST_PLAY || gState == ST_READY ||
         gState == ST_DEAD || gState == ST_CLEAR) camUpdate();
+    /*  a spare ball for every ten thousand, wherever the points came
+        from - fruit, a chain, or the clock being counted off at the end
+        of a stage. a loop, because one payout can cross two of them.  */
+    while (gScore >= gBonusNext) {
+        gLives++;
+        gBonusNext += BONUS_STEP;
+        gBonusT = BONUS_LEN;
+        playSfx(SFX_1UP);
+    }
     if (gScore > gHi) gHi = gScore;
     memset(gHit, 0, sizeof(gHit));
 }
@@ -4620,6 +4641,52 @@ static void toggleFullscreen(void)
     computeDst();
 }
 
+/*  the spare ball fanfare. the ball leaves the middle of the field and
+    lands on the counter in the corner, shrinking the whole way, which
+    is the bit that says where the extra one has gone. it waits a beat
+    before setting off and sits on the counter for a beat at the end,
+    so the eye has somewhere to start and somewhere to finish.      */
+static void drawBonusFx(void)
+{
+    /*  where the counter sits: the same corner drawHud puts it in.  */
+    const int tx = SCR_W - 42, ty = 20;
+    const int sx = SCR_W / 2, sy = (HUD_H + SCR_H) / 2;
+    float t, f, e;
+    int cx, cy, r, dy;
+
+    if (gBonusT <= 0) return;
+    t = 1.0f - gBonusT / (float)BONUS_LEN;          /* 0 -> 1 */
+    f = (t - 0.18f) / 0.62f;                        /* the flight alone  */
+    if (f < 0.0f) f = 0.0f;
+    if (f > 1.0f) f = 1.0f;
+    e = f * f * (3.0f - 2.0f * f);                  /* ease in and out   */
+
+    cx = sx + (int)((tx - sx) * e);
+    cy = sy + (int)((ty - sy) * e);
+    r  = 52 - (int)(45 * e);
+
+    for (dy = -r; dy <= r; dy++) {
+        int hw = (int)(sqrt((double)(r * r - dy * dy)) + 0.5);
+        int yy = cy + dy;
+        if (hw <= 0) continue;
+        fillRect(cx - hw, yy, hw * 2, 1, PC_MAIN);
+        /*  a rim, and a highlight up in the top left of the ball      */
+        if (dy == -r || dy == r) fillRect(cx - hw, yy, hw * 2, 1, PC_DARK);
+        else { fillRect(cx - hw, yy, 2, 1, PC_DARK);
+               fillRect(cx + hw - 2, yy, 2, 1, PC_DARK); }
+    }
+    if (r > 10) {
+        int q = r / 3;
+        fillRect(cx - r / 2, cy - r / 2, q, q, 0xFFFFFF);
+    }
+
+    /*  the word, held for the whole two seconds and lifted clear of
+        the ball's flight path.                                      */
+    drawText("Congratulation!", 0, HUD_H + 96, 0x30507A, 1, 1);
+    drawText("Congratulation!", 0, HUD_H + 92, 0xFFD060, 1, 1);
+    drawText("1UP", 0, HUD_H + 140, 0xFFFFFF, 0, 1);
+}
+
 static void render(void)
 {
     HDC dc;
@@ -4637,6 +4704,8 @@ static void render(void)
         GdiFlush();            /* the wash below has to see the text */
         drawHurtFx();
         drawHud();
+        GdiFlush();
+        drawBonusFx();
     }
     drawOverlay();
     if (gPadNotice > 0 && (gFrame / 6) % 2)
