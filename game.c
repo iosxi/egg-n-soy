@@ -2,12 +2,14 @@
    EGGnSOYMILK  -  an action puzzle climbing game
    ------------------------------------------------------------
    Pure Win32 C. No external libraries to link against.
-     - graphics : GDI + DIB section, hand coded 16x16 pixel art
+     - graphics : GDI + DIB section, art re-sampled off the
+                  reference sheet into the source
      - sound    : waveOut, software chiptune synth (2 pulse +
                   noise + sfx channel) with an original score
-     - music    : piko1.mp3 on the title and neon1/neon2.mp3 on the
-                  odd and even stages, if they are sitting next to
-                  the exe, play over the synth score. media
+     - music    : sounds/piko1.mp3 on the title and sounds/neon1
+                  and neon2.mp3 on the odd and even stages, if that
+                  folder is beside the exe, play over the synth
+                  score. media
                   foundation decodes them and is loaded at run time,
                   so the exe still starts - and still sounds like
                   itself - with no files and no mfplat at all.
@@ -1661,6 +1663,7 @@ static const GUID MG_CHANS = {0x37e48bf5,0x645e,0x4c5b,
     {0x89,0xde,0xad,0xa9,0xe2,0x9b,0x69,0x6a}};
 
 static char    mDir[MAX_PATH];      /* where the exe lives, with a slash */
+#define SOUND_DIR "sounds\\"    /* the tracks live beside the exe   */
 static int     mHaveMF = 0;         /* media foundation came up ok       */
 
 /*  mPcm, mLen and mPos belong to the mixer and are only ever touched
@@ -1698,6 +1701,13 @@ static void musicInit(void)
     mHaveMF = 1;
 }
 
+/*  a track name is only ever a bare file name; this is the one place
+    that knows which folder it comes out of.                          */
+static void musicPath(char *out, const char *file)
+{
+    sprintf(out, "%s%s%s", mDir, SOUND_DIR, file);
+}
+
 /*  decode one file all the way through. returns NULL if anything at
     all went wrong - every failure lands back on the synth, which is
     always a safe place to land.                                     */
@@ -1710,7 +1720,7 @@ static short *musicDecode(const char *file, int *outLen)
     short *pcm = NULL;
     int cap = SR * 30, len = 0;
 
-    sprintf(path, "%s%s", mDir, file);
+    musicPath(path, file);
     if (GetFileAttributesA(path) == INVALID_FILE_ATTRIBUTES) { *outLen = 0; return NULL; }
     MultiByteToWideChar(CP_ACP, 0, path, -1, wide, MAX_PATH + 64);
 
@@ -1849,7 +1859,7 @@ static int musicPlay(const char *file)
     if (strcmp(mCur, file) == 0) { LeaveCriticalSection(&aCS); return 1; }
     LeaveCriticalSection(&aCS);
 
-    sprintf(path, "%s%s", mDir, file);
+    musicPath(path, file);
     if (GetFileAttributesA(path) == INVALID_FILE_ATTRIBUTES) { musicStop(); return 0; }
 
     EnterCriticalSection(&aCS);

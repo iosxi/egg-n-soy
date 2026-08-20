@@ -19,8 +19,8 @@ from PIL import Image
 import numpy as np, os
 
 SP = os.path.dirname(os.path.abspath(__file__))
-J = lambda n: os.path.join(SP, n)
-SRC = J('src2.png')
+J = lambda *n: os.path.join(SP, *n)
+SRC = J('assets', 'src2.png')     # source material, not shipped
 
 im = Image.open(SRC).convert('RGBA')
 A = np.array(im).astype(np.float64)
