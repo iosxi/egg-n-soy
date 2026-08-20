@@ -91,7 +91,7 @@
 /*  fruit floats now, so a chain takes longer to walk - and it pays
     1.5x, then 2x, then 3x, and never more than that.             */
 /*  a foe is springy. land on one and it gives, flattens to half its
-    height and pushes back, throwing the player up at half the speed
+    height and pushes back, throwing the player up at most of the speed
     that arrived. catch it with the jump button while it is coming back
     up and that becomes a jump twice the height of a standing one - which
     makes a foe a serviceable springboard, and the deck two floors up
@@ -99,11 +99,15 @@
 #define SQ_DOWN      5         /* frames going flat                   */
 #define SQ_UP        9         /* frames springing back - the window  */
 #define SQ_LEN     (SQ_DOWN + SQ_UP)
-#define BOUNCE      0.50f      /* of the speed that landed            */
+#define BOUNCE      0.80f      /* of the speed that landed            */
 #define BOUNCE_MIN  4.50f      /* even a gentle touch lifts you off   */
 /*  twice the height, not twice the speed: height goes with the square
     of the launch, so root two is what doubles the arc.              */
 #define SPRING_JUMP (PJUMP * 1.41421f)
+
+/*  three a unit, so the whole clock comes to about what a deck of
+    fruit does now that a fruit pays twenty.                        */
+#define TIME_BONUS   3
 
 #define COMBO_WIN  150         /* two and a half seconds to chain     */
 #define COMBO_TOP    3         /* rungs on the ladder of multipliers  */
@@ -4022,7 +4026,7 @@ static void update(void)
             counted off four units a frame instead of one every three. */
         if (gStateT < 110 && gTime > 0) {
             int n = 4;
-            while (n-- > 0 && gTime > 0) { gTime--; gScore += 20; }
+            while (n-- > 0 && gTime > 0) { gTime--; gScore += TIME_BONUS; }
         }
         if (gStateT > 160) nextStage();
         break;
