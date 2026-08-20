@@ -1,5 +1,5 @@
 /* ============================================================
-   EGGnSOYMILK  -  an action puzzle climbing game
+   EGG n SOY  -  an action puzzle climbing game
    ------------------------------------------------------------
    Pure Win32 C. No external libraries to link against.
      - graphics : GDI + DIB section, art re-sampled off the
@@ -14,7 +14,7 @@
                   so the exe still starts - and still sounds like
                   itself - with no files and no mfplat at all.
    build:
-     gcc -O2 -o eggnsoymilk.exe game.c -lgdi32 -lwinmm -mwindows
+     gcc -O2 -o eggnsoy.exe game.c -lgdi32 -lwinmm -mwindows
    ============================================================ */
 
 #define WIN32_LEAN_AND_MEAN
@@ -1268,7 +1268,7 @@ static int    gTime, gTimeTick;
 static int    gGoalX, gGoalY;
 static int    gPlayerSX, gPlayerSY;
 
-enum { ST_TITLE, ST_HOWTO, ST_CONFIG, ST_READY, ST_PLAY, ST_PAUSE,
+enum { ST_TITLE, ST_CONFIG, ST_READY, ST_PLAY, ST_PAUSE,
        ST_DEAD, ST_CLEAR, ST_OVER, ST_ALLCLEAR };
 static int   gState, gStateT;
 static int   gFrame;
@@ -1517,7 +1517,6 @@ static int           aSong = SONG_NONE, aSongReq = SONG_NONE, aReqNow = 0;
 static int           aSongFall = SONG_NONE;   /* cue a recording took over */
 static int           aRow, aRowSamp;
 static int           aSfxId, aSfxT;
-static int           aMute = 0;
 static int           aPaused = 0;      /* the score holds its place */
 static CRITICAL_SECTION aCS;
 static HWAVEOUT      aWO;
@@ -2016,7 +2015,6 @@ static void audioRender(short *out, int n)
             if (++mPos >= mLen) mPos = 0;
         }
 
-        if (aMute) m = 0.0;
         m *= MASTER;
         if (m > 1.0) m = 1.0;
         if (m < -1.0) m = -1.0;
@@ -3667,8 +3665,8 @@ static void camUpdate(void)
 /* ------------------------------------------------------------------ */
 /*  menus                                                              */
 /* ------------------------------------------------------------------ */
-#define TITLE_ROWS  3
-#define PAUSE_ROWS  4
+#define TITLE_ROWS  2
+#define PAUSE_ROWS  3
 #define CFG_ROWS   (ACT_COUNT + 2)       /* actions, reset, back */
 
 static int gCfgSel, gCfgCol, gCfgWait, gCfgFrom = ST_TITLE;
@@ -3787,7 +3785,6 @@ static void doBack(void)
         return;
     }
     if (gState == ST_PAUSE) { leavePause(); return; }
-    if (gState == ST_HOWTO) { gState = ST_TITLE; gStateT = 0; return; }
     if (gState == ST_TITLE) { gRunning = 0; return; }
     audioPause(0);
     gState = ST_TITLE; gStateT = 0; playSong(SONG_TITLE);
@@ -3800,7 +3797,6 @@ static void update(void)
     gStateT++;
     padUpdate();
 
-    if (gHit['M']) aMute = !aMute;
     if (gShakeT > 0) gShakeT--;
     if (gHurtT  > 0) gHurtT--;
 
@@ -3812,13 +3808,9 @@ static void update(void)
             if (menuUp())   { gMenuSel = (gMenuSel + TITLE_ROWS - 1) % TITLE_ROWS; playSfx(SFX_MENU); }
             if (menuDown()) { gMenuSel = (gMenuSel + 1) % TITLE_ROWS;              playSfx(SFX_MENU); }
             if (gStateT > 8 && menuOk()) {
-                if (gMenuSel == 0)      startGame();
-                else if (gMenuSel == 1) enterConfig(ST_TITLE);
-                else                  { gState = ST_HOWTO; gStateT = 0; }
+                if (gMenuSel == 0) startGame();
+                else               enterConfig(ST_TITLE);
             }
-            break;
-        case ST_HOWTO:
-            if (gStateT > 12 && menuOk()) { gState = ST_TITLE; gStateT = 0; gMenuSel = 2; }
             break;
         case ST_CONFIG:
             updateConfig();
@@ -3831,7 +3823,6 @@ static void update(void)
                 switch (gPauseSel) {
                 case 0:  leavePause(); break;
                 case 1:  enterConfig(ST_PAUSE); break;
-                case 2:  aMute = !aMute; playSfx(SFX_MENU); break;
                 default: audioPause(0);
                          gState = ST_TITLE; gStateT = 0; gMenuSel = 0;
                          playSong(SONG_TITLE);
@@ -3934,7 +3925,7 @@ static void viewBegin(void)
 
 static int fieldVisible(void)
 {
-    if (gState == ST_TITLE || gState == ST_HOWTO) return 0;
+    if (gState == ST_TITLE) return 0;
     if (gState == ST_CONFIG && gCfgFrom == ST_TITLE) return 0;
     return 1;
 }
@@ -4198,72 +4189,29 @@ static const char *padLabel(int a)
     return (a <= ACT_DOWN) ? "スティック" : "--";
 }
 
-/*  one page of instructions, reachable from the title. the control
-    table is filled in from the live bindings, so it never disagrees
-    with what the config screen has been told.                      */
-static void drawHowto(void)
-{
-    int a, y;
-
-    menuPanel(60, HUD_H + 4, SCR_W - 120, 516);
-    drawText("あそびかた", 0, HUD_H + 10, 0xFFD060, 1, 1);
-    drawText("フルーツを ぜんぶ あつめて いえに はいろう", 0, HUD_H + 56, 0xFFFFFF, 0, 1);
-
-    y = HUD_H + 90;
-    drawText("そうさ",       210, y, 0xFFD060, 0, 0);
-    drawText("キーボード",   420, y, 0xFFD060, 0, 0);
-    drawText("パッド",       690, y, 0xFFD060, 0, 0);
-    for (a = 0; a < ACT_COUNT; a++) {
-        int ry = y + 24 + a * 20;
-        drawText(ACT_LABEL[a], 210, ry, 0x9CE0FF, 0, 0);
-        drawText(keyName(gKeyBind[a][0]), 420, ry, 0xFFFFFF, 0, 0);
-        drawText(keyName(gKeyBind[a][1]), 545, ry, 0xFFFFFF, 0, 0);
-        drawText(padLabel(a),             690, ry, 0xFFFFFF, 0, 0);
-    }
-
-    y = HUD_H + 296;
-    drawText("ジャンプボタンを ながく おすと ４マス うえの あしばに のれる", 0, y,       0xFFD060, 0, 1);
-    drawText("あしばの うえで した を おすと したの かいに おりられる",       0, y + 20, 0xFFD060, 0, 1);
-    drawText("ひだりはしと みぎはしは つながっている ぐるっと まわれる",     0, y + 40, 0x70E090, 0, 1);
-    drawText("やじるしと どうじに ダッシュで ３マス すべりこむ",             0, y + 60, 0xFFD060, 0, 1);
-    drawText("キックされた ソイミルクは ２マス すべって きぜつする",         0, y + 80, 0xFFD060, 0, 1);
-    drawText("きぜつちゅうは あんぜん あたまに のれる フルーツも キックで とれる", 0, y + 100, 0xFFD060, 0, 1);
-    drawText("２びょういないに つづけて とると コンボで 1.5ばい",            0, y + 120, 0x9CE0FF, 0, 1);
-    drawText("ライフは ステージごとに ハート３つ",                          0, y + 140, 0xFF9AB0, 0, 1);
-
-    drawText("F11 ぜんがめん   1-4 がめんサイズ   M おんがく   ESC もどる",
-             0, HUD_H + 462, 0x7AA8D0, 0, 1);
-    if ((gFrame / 20) % 2)
-        drawText("- ジャンプボタンで もどる -", 0, HUD_H + 492, 0xFFFFFF, 0, 1);
-    GdiFlush();
-}
 
 /*  the pause menu. the pause button itself always drops straight back
     into the game; the list is for everything else.                  */
 static void drawPause(void)
 {
     static const char *items[PAUSE_ROWS] = {
-        "つづける", "キーコンフィグ", "", "タイトルへ"
+        "つづける", "キーコンフィグ", "タイトルへ"
     };
-    char buf[64];
     int i, y = HUD_H + 210;
 
     dimScreen();
-    menuPanel(SCR_W / 2 - 230, HUD_H + 96, 460, 300);
+    /*  one row shorter than it was, so the panel closes up with it */
+    menuPanel(SCR_W / 2 - 230, HUD_H + 96, 460, 262);
     drawText("ポーズちゅう", 0, HUD_H + 120, 0xFFD060, 1, 1);
     for (i = 0; i < PAUSE_ROWS; i++) {
         unsigned col = (i == gPauseSel) ? 0xFFFFFF : 0x8090B0;
-        if (i == 2) sprintf(buf, "おんがく  %s", aMute ? "オフ" : "オン");
-        else        sprintf(buf, "%s", items[i]);
-        drawText(buf, 0, y + i * 30, col, 0, 1);
+        drawText(items[i], 0, y + i * 30, col, 0, 1);
     }
     GdiFlush();
     menuMark(SCR_W / 2 - 130, y + gPauseSel * 30);
 
-    drawText("うえ した で えらぶ   ジャンプボタン で けってい",
-             0, HUD_H + 360, 0x7AA8D0, 0, 1);
     drawText("ポーズボタン か ESC で すぐ さいかい",
-             0, HUD_H + 382, 0x7AA8D0, 0, 1);
+             0, HUD_H + 320, 0x7AA8D0, 0, 1);
     GdiFlush();
 }
 
@@ -4310,6 +4258,16 @@ static void drawConfig(void)
              (gCfgSel == ACT_COUNT) ? 0xFFE070 : 0x9CE0FF, 0, 0);
     drawText("とじる", x0, ry + 26,
              (gCfgSel == ACT_COUNT + 1) ? 0xFFE070 : 0x9CE0FF, 0, 0);
+
+    /*  the keys the window itself answers to. they cannot be moved, so
+        they sit below the table as a plain list rather than a row that
+        the cursor can land on - and this is the only place they are
+        written down now that the instructions page is gone.        */
+    drawText("かえられない キー", x0, ry + 56, 0xFFD060, 0, 0);
+    drawText("ぜんがめん",   x0, ry + 80,  0x9CE0FF, 0, 0);
+    drawText("F11",          x1, ry + 80,  0xFFFFFF, 0, 0);
+    drawText("がめんサイズ", x0, ry + 102, 0x9CE0FF, 0, 0);
+    drawText("1 - 4",        x1, ry + 102, 0xFFFFFF, 0, 0);
     GdiFlush();
     menuMark(x0 - 26, y + 30 + (gCfgSel < ACT_COUNT ? gCfgSel * 26
                                 : ACT_COUNT * 26 + 16 + (gCfgSel - ACT_COUNT) * 26));
@@ -4331,7 +4289,7 @@ static void drawOverlay(void)
     switch (gState) {
     case ST_TITLE: {
         static const char *items[TITLE_ROWS] = {
-            "ゲーム スタート", "キーコンフィグ", "あそびかた"
+            "ゲーム スタート", "キーコンフィグ"
         };
         int i;
         for (i = 0; i < 8; i++) {
@@ -4351,9 +4309,6 @@ static void drawOverlay(void)
         GdiFlush();
         menuMark(SCR_W / 2 - 130, HUD_H + 190 + gMenuSel * 32);
         break; }
-    case ST_HOWTO:
-        drawHowto();
-        break;
     case ST_PAUSE:
         drawPause();
         break;
@@ -4639,12 +4594,12 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int sc)
     wc.hInstance     = hi;
     wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
-    wc.lpszClassName = "EggnSoymilk";
+    wc.lpszClassName = "EggnSoy";
     RegisterClassA(&wc);
 
     rc.left = 0; rc.top = 0; rc.right = SCR_W; rc.bottom = SCR_H;
     AdjustWindowRect(&rc, WIN_STYLE, FALSE);
-    gWnd = CreateWindowA("EggnSoymilk", "EGGnSOYMILK",
+    gWnd = CreateWindowA("EggnSoy", "EGG n SOY",
                          WIN_STYLE,
                          CW_USEDEFAULT, CW_USEDEFAULT,
                          rc.right - rc.left, rc.bottom - rc.top,
