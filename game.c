@@ -1627,7 +1627,7 @@ static double pulseOut(Pulse *p)
     SYNTH_GAIN to meet it. the two then sit level, and the master is
     opened up by as much as that frees so nothing ends up quieter.   */
 #define MUSIC_RMS   0.200      /* loudness both sides are held to       */
-#define MUSIC_PEAK  1.350      /* a track is never gained past this     */
+#define MUSIC_PEAK  1.250      /* a track is never gained past this     */
 #define SYNTH_GAIN  0.567      /* score and sfx, down to meet it        */
 #define MASTER      0.680      /* was 0.55, before the headroom opened  */
 #define MUSIC_MAXS  (SR * 600) /* ten minutes; anything longer is junk  */
