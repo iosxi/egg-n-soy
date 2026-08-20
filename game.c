@@ -88,7 +88,25 @@
 #define DASH_SPD    (3.0f * TILE / DASH_LEN)
 #define DASH_CD     14         /* barely a breath before the next  */
 
-#define COMBO_WIN  120         /* two seconds to chain the next fruit */
+/*  fruit floats now, so a chain takes longer to walk - and it pays
+    1.5x, then 2x, then 3x, and never more than that.             */
+/*  a foe is springy. land on one and it gives, flattens to half its
+    height and pushes back, throwing the player up at half the speed
+    that arrived. catch it with the jump button while it is coming back
+    up and that becomes a jump twice the height of a standing one - which
+    makes a foe a serviceable springboard, and the deck two floors up
+    reachable from the deck below.                                     */
+#define SQ_DOWN      5         /* frames going flat                   */
+#define SQ_UP        9         /* frames springing back - the window  */
+#define SQ_LEN     (SQ_DOWN + SQ_UP)
+#define BOUNCE      0.50f      /* of the speed that landed            */
+#define BOUNCE_MIN  4.50f      /* even a gentle touch lifts you off   */
+/*  twice the height, not twice the speed: height goes with the square
+    of the launch, so root two is what doubles the arc.              */
+#define SPRING_JUMP (PJUMP * 1.41421f)
+
+#define COMBO_WIN  150         /* two and a half seconds to chain     */
+#define COMBO_TOP    3         /* rungs on the ladder of multipliers  */
 #define MAXPOP      12         /* score popups on screen at once      */
 #define POP_LIFE    46
 
@@ -111,7 +129,10 @@
 #define PC_MAIN  0x2F73FD
 #define PC_DARK  0x0738B8
 
-#define MAXENEMY  12
+/*  tenths of the map's own foe count, added on top of it            */
+#define FOE_EXTRA   2
+
+#define MAXENEMY  16
 #define NSTAGE     6
 
 /* ------------------------------------------------------------------ */
@@ -1105,7 +1126,7 @@ static const char *STAGES[NSTAGE][MAPH] = {
 {   "                                                                ",     /* 1 - hills and a long low road */
     "                                                                ",
     "                                              =====             ",
-    "     H  o            o                  o         o     H    G  ",
+    "     H  o            o                  o         o  ^  H    G  ",
     "=====H======     ================      =================H=======",
     "     H                                         Q        H       ",
     "     H      ====                             =====      H       ",
@@ -1113,7 +1134,7 @@ static const char *STAGES[NSTAGE][MAPH] = {
     "=====H============     ===H====================     ====H=======",
     "     H                    H       Q                     H       ",
     "     H                    H      =====                  H       ",
-    " o   H       o      1     H   o            H    o       H o     ",
+    " o   H    ^  o      1     H   o            H    o       H o     ",
     "=====H=========     ======H=========    ===H================   =",
     "     H     Q              H    Q           H                    ",
     "     H    ====            H   =====        H                    ",
@@ -1123,11 +1144,11 @@ static const char *STAGES[NSTAGE][MAPH] = {
 {   "                                                                ",     /* 2 - gaps everywhere, goal up top */
     "             Q                                                  ",
     "            =====                 ====                          ",
-    " o                  o         1     o H             G  o        ",
+    " o                  o^        1     o H             G  o        ",
     "====       ==============     ========H=====      ==============",
     "                            Q         H                         ",
     "                          ======      H                         ",
-    "  o       1       o  H             o  H          o          H o ",
+    "  o     ^ 1       o  H             o  H          o          H o ",
     "============      ===H========     ===H===============    ==H===",
     "     Q               H                H                   Q H   ",
     "    =====            H                H                 ====H   ",
@@ -1141,15 +1162,15 @@ static const char *STAGES[NSTAGE][MAPH] = {
 {   "                                                                ",     /* 3 - spikes on the ground floor */
     "                                                    Q           ",
     "                                                  ======        ",
-    "         o  1           o      H         o                o   G ",
+    "        ^o  1           o      H         o                o   G ",
     "==============       ==========H===============        =========",
     "                  Q            H                                ",
     "                =====          H                                ",
-    "     o H              o        H   o        H1     o         o  ",
+    "     o H              o        H   o        H1  ^  o         o  ",
     "=======H==      ===============H====      ==H===================",
     "       H     Q                 H        Q   H                   ",
     "       H    =====              H      ===== H                   ",
-    "  o    H        o  H  1      o H         o  H          o H      ",
+    "  o    H        o  H  1      o H  ^      o  H          o H      ",
     "=======H===========H====     ===============H=====     ==H======",
     "       H           H       Q                H            H      ",
     "       H           H      =====             H            H      ",
@@ -1163,7 +1184,7 @@ static const char *STAGES[NSTAGE][MAPH] = {
     "========      ==========H===========       ===========H===     =",
     "                        H        Q                    H      Q  ",
     "                        H       =====                 H     ====",
-    " o            H  o      H o             1   H  o      H o       ",
+    " o            H  o      H o^         ^  1   H  o  ^   H o       ",
     "==     =======H===============      ========H=============    ==",
     "              H               Q             H                   ",
     "              H             =====           H                   ",
@@ -1177,15 +1198,15 @@ static const char *STAGES[NSTAGE][MAPH] = {
 {   "                                                                ",     /* 5 - three foes and two spike beds */
     "                                   Q                            ",
     "                                 =====                          ",
-    "  o   H G          o              o   H     1           o       ",
+    "  o   H G          o              o   H     1           o^      ",
     "======H===      ============     =====H=======       ===========",
     "      H                  Q            H                         ",
     "      H                 ======        H                         ",
-    "      H   o           H   o   1       H   o       1   H   o     ",
+    "      H   o           H   o   1 ^     H  ^o       1   H   o     ",
     "======H========     ==H===============H=====      ====H=========",
     "      H         Q     H               H         Q     H         ",
     "      H        =====  H               H        =====  H         ",
-    " o    H          o    H  1         o  H            o  H   o     ",
+    " o    H   ^      o    H  1         o  H            o  H   o     ",
     "======H=====     =====H======     ====H======     ====H=====   =",
     "      H               H         Q     H               H     Q   ",
     "      H               H       ======  H               H   ===== ",
@@ -1195,15 +1216,15 @@ static const char *STAGES[NSTAGE][MAPH] = {
 {   "                                                                ",     /* 6 - the long climb */
     "                                Q                               ",
     "                              ======                            ",
-    "             o   1 H     o          G   o  H            o   1   ",
+    "             o   1 H  ^  o          G  ^o  H            o   1   ",
     "======      =======H======      ===========H====       =========",
     "                Q  H                       H            Q       ",
     "              =====H                       H           =====    ",
-    "        o  H       Ho       1     oH       H 1 H  o        H o  ",
+    "        o  H       Ho       1     oH       H 1 H  o^       H o  ",
     "==     ====H==========      =======H==    =====H=====    ==H====",
     "         Q H                       H      Q    H           H    ",
     "        ===H=                      H    =====  H           H    ",
-    " o H       H   H  o        H   o  1H        o  H   H       H 1o ",
+    " o H       H   H  o        H   o^ 1H        o  H   H       H 1o ",
     "===H==    =====H=====     =H========     ==========H===    =====",
     "   H           H       Q   H                  Q    H            ",
     "   H           H      =====H                 ===== H            ",
@@ -1240,6 +1261,8 @@ typedef struct {
     int   mode;         /* FM_PATROL / FM_CHASE                   */
     int   modeT;
     int   drop;         /* committed to walking off a ledge       */
+    int   squash;       /* flattened by a stomp, springing back    */
+    int   spring;       /* frames a jump still catches the spring  */
     int   temper;       /* 0 = wanderer .. 2 = hunter             */
 } Actor;
 
@@ -1261,6 +1284,14 @@ typedef struct {
     float mult;         /* > 1 means it was part of a chain */
 } Popup;
 static Popup  gPop[MAXPOP];
+static const float COMBO_MUL[COMBO_TOP + 1] = { 1.0f, 1.5f, 2.0f, 3.0f };
+static float comboMul(int n)
+{
+    if (n < 0) n = 0;
+    if (n > COMBO_TOP) n = COMBO_TOP;
+    return COMBO_MUL[n];
+}
+
 static int    gCombo;       /* fruit taken so far in this chain  */
 static int    gComboT;      /* frames left to keep the chain     */
 static int    gScore, gHi = 20000, gLives, gLife, gStage, gLoop;
@@ -2770,6 +2801,17 @@ static void loadStage(int idx)
         for (c = 0; c < MAPW; c++) gmap[r][c] = (c < len) ? src[r][c] : ' ';
         gmap[r][MAPW] = 0;
     }
+    /*  lift every fruit clear of the floor it was drawn on, so walking
+        the deck no longer sweeps them up - they have to be jumped for,
+        or kicked loose. one that has something directly overhead stays
+        where it is; there is nowhere for it to go.                   */
+    for (r = 1; r < MAPH; r++)
+        for (c = 0; c < MAPW; c++)
+            if ((gmap[r][c] == 'o' || gmap[r][c] == 'Q') && gmap[r - 1][c] == ' ') {
+                gmap[r - 1][c] = gmap[r][c];
+                gmap[r][c] = ' ';
+            }
+
     for (r = 0; r < MAPH; r++) {
         for (c = 0; c < MAPW; c++) {
             char t = gmap[r][c];
@@ -2786,6 +2828,26 @@ static void loadStage(int idx)
             else if (t == 'G') { gGoalX = c; gGoalY = r; }
         }
     }
+    /*  a few more foes than the map asks for. FOE_EXTRA is a tenth, so
+        two of it is the twenty per cent this is set to - one knob to
+        turn while the number is still being felt out. an extra stands
+        on a floor tile with room above it, well away from where the
+        player comes in.                                             */
+    {
+        int want = (gFoeCount * FOE_EXTRA + 5) / 10, tries = 0;
+        while (want > 0 && gFoeCount < MAXENEMY && tries++ < 4000) {
+            int cc = rand() % MAPW, rr = 1 + rand() % (MAPH - 1);
+            char here = gmap[rr][cc], under = gmap[rr + 1 >= MAPH ? rr : rr + 1][cc];
+            if (here != ' ' || gmap[rr - 1][cc] != ' ') continue;
+            if (!isSolid(under) && !isOneWay(under)) continue;
+            if (abs(cc - gPlayerSX) < 8 && abs(rr - gPlayerSY) < 3) continue;
+            spawnActor(&gFoe[gFoeCount], cc, rr);
+            gFoe[gFoeCount].dir = (gFoeCount & 1) ? -1 : 1;
+            gFoeCount++;
+            want--;
+        }
+    }
+
     if (gGoalX < 0) { gGoalX = MAPW - 3; gGoalY = 1; gmap[gGoalY][gGoalX] = 'G'; }
     spawnActor(&gPlayer, gPlayerSX, gPlayerSY);
     gPlayer.invuln = INVULN;
@@ -2937,6 +2999,21 @@ static int platformBelow(Actor *a)
     tile row and the flag flickered 1,0,1,0 - which silently ate every
     other jump press. probing the pixel row under the feet instead is
     stable and doubles as coyote time when stepping off a ledge.       */
+/*  standing on planks rather than on real floor - which is to say,
+    there is a way down from here.                                  */
+static int onPlanks(Actor *a)
+{
+    int i, probe = (int)a->y + AH, feetRow = ((int)a->y + AH - 1) >> 5;
+    int found = 0;
+    for (i = 0; i < 3; i++) {
+        int px = (int)a->x + (i == 0 ? 1 : (i == 1 ? AW / 2 : AW - 2));
+        char t = tileAt(px >> 5, probe >> 5);
+        if (isSolid(t)) return 0;               /* real floor, no way through */
+        if (isOneWay(t) && feetRow < (probe >> 5)) found = 1;
+    }
+    return found;
+}
+
 static int groundProbe(Actor *a)
 {
     int i;
@@ -3173,14 +3250,14 @@ static void drawDashFx(void)
 static void drawComboGauge(void)
 {
     Actor *p = &gPlayer;
-    int   x, y, ty, w = 34, fw, i;
+    int   x, y, ty, w = 34, fw;
     float f, mult = 1.0f;
     unsigned col;
     char buf[24];
 
     if (gComboT <= 0 || !p->alive) return;
     f = gComboT / (float)COMBO_WIN;
-    for (i = 0; i <= gCombo; i++) mult *= 1.5f;   /* what the next one pays */
+    mult = comboMul(gCombo + 1);                  /* what the next one pays */
 
     ty = gDrawY0 + (int)p->y - 36;
     if (ty < HUD_H + 1) ty = HUD_H + 1;
@@ -3241,20 +3318,19 @@ static void popUpdate(void)
     dashFxUpdate();
 }
 
-/*  one fruit taken, wherever it came from - walked into or kicked loose.
-    a pickup inside the two second window extends the chain and multiplies
-    the payout by 1.5 again, so the fourth fruit of a run is worth 3.375
-    times its face value.                                               */
+/*  one fruit taken, wherever it came from - jumped for or kicked loose.
+    a pickup inside the window moves the chain up a rung: 1.5x, 2x, 3x,
+    and it stays at 3x however long the run goes on.                   */
 static void takeFruit(int c, int r, char t)
 {
-    int   base = (t == 'Q') ? 300 : 200;
+    int   base = (t == 'Q') ? 30 : 20;
+    float mult;
+    int   gain;
     c = wrapTX(c);
-    float mult = 1.0f;
-    int   i, gain;
 
     if (gComboT > 0) gCombo++; else gCombo = 0;
     gComboT = COMBO_WIN;
-    for (i = 0; i < gCombo; i++) mult *= 1.5f;
+    mult = comboMul(gCombo);
 
     gain = (int)(base * mult + 0.5f);
     gmap[r][c] = ' ';
@@ -3312,12 +3388,42 @@ static float foeTop(Actor *e) { return e->y + (e->stun > 0 ? (float)(AH / 2) : 0
 
 /*  land on a foe and ride it. checked after the player has moved, so
     it behaves like a one way platform that walks around.            */
+/*  landing on a foe. it flattens under the weight and pushes back with
+    half the speed that came down, so a stomp always leaves the player
+    higher than a plain fall would. the foe is unharmed - this is a
+    springboard, not an attack - and it is briefly harmless while it is
+    busy being sat on.                                               */
+static int stompFoe(Actor *p)
+{
+    int i;
+    if (p->vy <= 0.0f || p->climb) return 0;
+    for (i = 0; i < gFoeCount; i++) {
+        Actor *e = &gFoe[i];
+        float top = e->y, feet = p->y + AH, b;
+        if (e->stun > 0 || e->squash > 0) continue;
+        if (fabsf(wrapDX(p->x, e->x)) > (float)(AW - 7)) continue;
+        if (feet < top - 1.0f || feet > top + 14.0f) continue;
+        b = p->vy * BOUNCE;
+        if (b < BOUNCE_MIN) b = BOUNCE_MIN;
+        p->y      = top - AH;
+        p->vy     = -b;
+        p->spring = SQ_LEN;
+        p->ride   = -1;
+        p->coyote = 0;
+        e->squash = SQ_LEN;
+        playSfx(SFX_LAND);
+        return 1;
+    }
+    return 0;
+}
+
 static int rideEnemy(Actor *p)
 {
     int i;
     if (p->vy < 0 || p->climb) return -1;
     for (i = 0; i < gFoeCount; i++) {
         Actor *e = &gFoe[i];
+        if (e->squash > 0) continue;      /* springing, not standing on */
         float top  = foeTop(e);
         float feet = p->y + AH;
         if (fabsf(wrapDX(p->x, e->x)) > (float)(AW - 7)) continue;
@@ -3343,9 +3449,10 @@ static void updatePlayer(void)
         under a ladder launch you by accident.                          */
     jumpPress = actHit(ACT_JUMP);
     jumpHeld  = actDown(ACT_JUMP);
-    dashPress = actHit(ACT_DASH);
+    dashPress = actDown(ACT_DASH);   /* held down keeps them coming */
 
     if (p->dropThru > 0) p->dropThru--;
+    if (p->spring > 0) p->spring--;
 
     /* kick - available on the ground, in the air and on a ladder */
     if (p->kick > 0) {
@@ -3354,7 +3461,7 @@ static void updatePlayer(void)
         if (p->kick == 0) p->kickCd = KICK_CD;
     } else if (p->kickCd > 0) {
         p->kickCd--;
-    } else if (actHit(ACT_KICK)) {
+    } else if (actDown(ACT_KICK)) {      /* held down keeps them coming */
         p->kick    = KICK_DUR;
         p->kickHit = 0;
         playSfx(SFX_KICK);
@@ -3437,7 +3544,13 @@ static void updatePlayer(void)
                 p->jbuf     = 0;
                 p->y       += 2.0f;
             }
-            if (p->jbuf > 0 && p->coyote > 0) {
+            /*  caught on the way back up: the spring throws in with
+                the jump and the pair of them clear two floors.      */
+            if (p->spring > 0 && p->spring <= SQ_UP && p->jbuf > 0) {
+                p->vy = SPRING_JUMP;
+                p->jbuf = 0; p->spring = 0; p->coyote = 0; p->onground = 0;
+                playSfx(SFX_DASH);
+            } else if (p->jbuf > 0 && p->coyote > 0) {
                 p->vy = PJUMP;
                 p->jbuf = 0; p->coyote = 0; p->onground = 0;
                 playSfx(SFX_JUMP);
@@ -3460,8 +3573,10 @@ static void updatePlayer(void)
 
     moveX(p);
     moveY(p);
-    if (p->ride >= 0 && p->onground && p->vy >= 0) p->vy = 0;
-    p->ride = rideEnemy(p);
+    if (!stompFoe(p)) {
+        if (p->ride >= 0 && p->onground && p->vy >= 0) p->vy = 0;
+        p->ride = rideEnemy(p);
+    }
     p->onground = groundProbe(p) || p->ride >= 0;
 
     /* fruit pickup */
@@ -3503,6 +3618,8 @@ static void updateFoe(Actor *e, int idx)
     int tx, ty, ptx, pty;
     centerTile(e, &tx, &ty);
     centerTile(p, &ptx, &pty);
+    if (e->dropThru > 0) e->dropThru--;
+    if (e->squash > 0) e->squash--;
     e->onground = groundProbe(e);
 
     /* seeing birds: no thinking, just fall and sit there */
@@ -3593,6 +3710,28 @@ static void updateFoe(Actor *e, int idx)
         }
     }
     if (e->climb) return;
+
+    /*  down through the planks. a foe can only climb back up a ladder,
+        so it does not do this on a whim: a hunter drops to follow the
+        player down, a wanderer hardly ever. and never onto the player -
+        with the player below and within two tiles either way, it stays
+        on the deck it is on rather than landing on their head.       */
+    if (e->onground && e->dropThru <= 0 && onPlanks(e)) {
+        int overhead = (pty > ty) &&
+                       fabsf(wrapDX(e->x, p->x)) <= (float)(2 * TILE);
+        /*  rolled every frame, so these are long odds on purpose: a
+            hunter with the player below takes a few seconds to commit,
+            and a wanderer the best part of a minute. any faster and the
+            upper decks empty themselves onto the player.             */
+        int want = (e->mode == FM_CHASE && pty > ty) ? ((rand() % 250) == 0)
+                                                     : ((rand() % 3000) == 0);
+        if (want && !overhead) {
+            e->dropThru = DROPTHRU;
+            e->onground = 0;
+            e->drop     = 30;               /* commit, do not turn round */
+            e->y       += 2.0f;
+        }
+    }
 
     e->vx = e->dir * spd;
     e->vy += GRAV_DN;
@@ -3858,6 +3997,7 @@ static void update(void)
         if (gPlayer.invuln <= 0) {
             for (i = 0; i < gFoeCount; i++) {
                 if (gFoe[i].stun > 0) continue;      /* dizzy = harmless */
+                if (gFoe[i].squash > 0) continue;    /* being bounced on   */
                 if (gPlayer.ride == i)  continue;    /* standing on it   */
                 if (actorsHit(&gPlayer, &gFoe[i])) { hurtPlayer(gFoe[i].x); break; }
             }
@@ -4017,6 +4157,10 @@ static void drawActors(void)
                 one.                                                  */
             drawArt(ex, ey, FOE_FLAT[kind], e->dir < 0);
             drawDizzy(ex + AW / 2, ey + 6);
+        } else if (e->squash > SQ_UP) {
+            /*  the same flat pose for the moment a stomp drives it
+                down; it is back on its feet as it springs.          */
+            drawArt(ex, ey, FOE_FLAT[kind], e->dir < 0);
         } else {
             drawArt(ex, ey, FOE_WALK[kind][(e->anim / 7) & 1], e->dir < 0);
         }
@@ -4263,11 +4407,13 @@ static void drawConfig(void)
         they sit below the table as a plain list rather than a row that
         the cursor can land on - and this is the only place they are
         written down now that the instructions page is gone.        */
-    drawText("かえられない キー", x0, ry + 56, 0xFFD060, 0, 0);
-    drawText("ぜんがめん",   x0, ry + 80,  0x9CE0FF, 0, 0);
-    drawText("F11",          x1, ry + 80,  0xFFFFFF, 0, 0);
-    drawText("がめんサイズ", x0, ry + 102, 0x9CE0FF, 0, 0);
-    drawText("1 - 4",        x1, ry + 102, 0xFFFFFF, 0, 0);
+    /*  indented clear of the column the cursor runs down, so it does
+        not read as two more rows waiting to be picked.              */
+    drawText("かえられない キー", x0 + 90, ry + 56, 0xFFD060, 0, 0);
+    drawText("ぜんがめん",   x0 + 90, ry + 80,  0x9CE0FF, 0, 0);
+    drawText("F11",          x1 + 90, ry + 80,  0xFFFFFF, 0, 0);
+    drawText("がめんサイズ", x0 + 90, ry + 102, 0x9CE0FF, 0, 0);
+    drawText("1 - 4",        x1 + 90, ry + 102, 0xFFFFFF, 0, 0);
     GdiFlush();
     menuMark(x0 - 26, y + 30 + (gCfgSel < ACT_COUNT ? gCfgSel * 26
                                 : ACT_COUNT * 26 + 16 + (gCfgSel - ACT_COUNT) * 26));
