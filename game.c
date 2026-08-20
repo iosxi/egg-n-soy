@@ -879,6 +879,61 @@ static const short PLR_WALK[6] = {
     AF_W0, AF_W1, AF_W2, AF_W3, AF_W4, AF_W5
 };
 
+/* ------------------------------------------------------------------ */
+/*  title logo                                                         */
+/* ------------------------------------------------------------------ */
+/*  the same treatment as the characters, off assets/src_title.png. it
+    is drawn on a far chunkier grid - some thirteen screen pixels to
+    the dot - so it is held at its own size and blown up by a whole
+    number where it is drawn, and it keeps a palette of its own so
+    its golds cannot cost the sprites any of theirs.               */
+#define LOGO_W 152
+#define LOGO_H 30
+#define LOGO_NPAL 48
+static const unsigned LOGO_PAL[LOGO_NPAL] = {
+    0xF6F4F1, 0xE4D1C9, 0xFCF2B2, 0xFCED87, 0xFAE24A, 0xFBE035,
+    0xFCE12C, 0xFBE768, 0xFCDA29, 0xFCCF27, 0xBBA7AE, 0xFCD512,
+    0xFAC523, 0xCDB52F, 0xFBB71D, 0xF8A216, 0xFB8F12, 0xF9800E,
+    0xCD7113, 0xD3C35A, 0x98832B, 0x7F7B89, 0x7AA4F3, 0xA75915,
+    0x2272F9, 0xF53B7B, 0x755423, 0xB11155, 0x51445F, 0x583A21,
+    0x3E2225, 0x2D4BAA, 0x282A4E, 0x281728, 0x170D28, 0x090726,
+    0x0D0D34, 0x0B4EEB, 0x012EB6, 0x00279E, 0x011E82, 0x02186C,
+    0x011058, 0x020B47, 0x010638, 0x01022D, 0x010225, 0x010229,
+};
+/*  indexed by ART_KEY, exactly as the character frames are.        */
+static const char *LOGO_PX[LOGO_H] = {
+    "..........F...................................................................R.........................................................................",
+    ".........F0F................................................................RBAG........................................................................",
+    "........B7(0B...............................................................E0-7R.......................................................................",
+    ".......R=0(07R.......RRRRRRRRRRRRRR.........................................B--:R..............................SRRRRRR.................RRRRRR...........",
+    "........RA1AG.......SGAAAAAAAAAAAAFR...RRRRRRRRRRR......RRRRRRRRRR..........G7-:R...RR.......RRRRRRRRRR......RSG=====BRR...RRRRRR.....REBBBBFR..........",
+    ".........G=GGSSQS..QS=(&%%%%%%%)'':R..RG=6600000ARR....RR7777777=RR.....R...R71BG..S7=G....RGF0660000AFR....SS=7)%&''0=RR.RB7777GR...RR7)%'+:SR.........",
+    "............RLI;LRQOO:1%!$$$$$$%'/5SRRB&)!$&'''''7GR.RRA0%!$''''*7GR..RE=F...F2G..G=-1B...RB0&$!$&'''''BRR.RG='&!!%''&'7GRR/%$)'7GR..RE&!$(3:NQ.........",
+    "....RS.....SSMI;;CPPP:1&%'(((((((25RSB0$%)(((((((1=S.RA&%)%'((''('7SR.R0-:S..G5G..S02:F...F0$%))(((((((2BR.RB)$)%&((&!$/=RR2)$&'/AS..R=&)'15HKQ.........",
+    "...G==G..SRLJI;;;;IMS=2(((*1111124:SG0%!%(((((((+3=RSR0$!&((((((((1AR.GB22BR.SRS.RA2:G...RB%!%((((((((14ARRR0!!&((((')%*2AR:1(((*5S.SE0&(*3=MLS..AE.....",
+    "...A22=.SM;;;;;;;;;;CG:/((2444444:FQ='$%((13341/35PNS7'!%'(+///*(14=S..SE5:R.....SA:G....R0%$'(*1333/+4=OPS7&!)(((((((((/=SE5+(((/ASR=)'(15FKO..E0=R....",
+    "...G==S.SKI;;;;;;;;;;LF1((2BQPPPPQLF0)&((25BEE=45ELNB0%&'(135553245PN....SS..RRSQ.RR....RR0((((15AAA54:PKPB0%'((*//+((((+5EQ=1(((*=SS&)(*3ALKQ.A0(/7G...",
+    "....SR..QOI;;;;;;;;;;;Q7((2BLJJJJJLE'!)(15EMKKOEELJO=&!'(/4APOH=4:FKM......SR888@R......RR0((((2AOMMHAELJP=)!((*24431((((1BNP5+((*/E=&'(24HJN..B7*0AG...",
+    "........QK;;;;;!!9;;9!C=((2BONNNMKS7')'*3AMKKKKMLKLG7')(+3ANJJKNQPKKP.....RD#!!!!8HG....RR2*(((*=EPOMLKJNF7)!(*2:QQB51(((+=GPA1(((*06'(+4AMKQ...G5BG....",
+    ".......SL;;;;;!!,899!8D=((/7@@@=ESR0(((14EORRSSRRROE((((15PJMMMMMMMNS....Q@#!!!!!!,Q....QNA1(((**07=QOLLQB(((*15SLJNB2*(((3FLE5+(((&'**25PJNQ....EF..E..",
+    "....SSSQJI;;;;!#QQ,!!SQ=***&)))+5SR0***2=SE6))66+0EE****3=NNEAAAAAAFS...QD!!!!!!!!#8H...SKF5/****''&6=FPOB****2BNJJJO=****3FLN=2******+4AMJP........B5=.",
+    "..RSBBBFOJI;;;!#N8,!!DD=+++++++15RR0+++2AS=)$%%)*3AE++++3BLQ0$$$%'/:R...S#!,,#!,,#!#DQ...NKB52/+++++&&7GSB++++3ELJJJN=++++3FNKQ5++++++25FJNQ.RSRSS..A25E",
+    "RG>><<<>FOJI;9!!;C#!!9@7+++////35SR0+++3AS=+*++++3AE++++3BLS+)&**+2:R..Q8!8DDD8MMD##,R...PKME:32/+++++/=SB++++3ELJJJN=+++/3FPKMA1++++/4BLJQSFB>>>BFQ.AB.",
+    "R<<<<<>>>>BJ;##!!!/1$,Q7++244444:SR0+++3AS=221+++4AE++++3BMS/1/+++2:R..H#!H;;KC;;LD##@S..RMJMP=543/++++2BB++++3ELJJJN=+++14FMMJE5++++2:PJNS@<<<<<<<BR...",
+    "RB<<>>BED@>>>8!!!,:=@D8E7+3ABBBBHNR0+++2APF=:51++3AE++++1BOO=441++2:R..D!!O;;;;;;;O##8Q...QPMKNFE:3++++2AB++++/=PJJLE7+++24FLPJM=+++/4BMKP@<<<<<<<<<BS..",
+    ".RB>BQQMI;;C><<<<>ENK9!8A+3BMKKKKLR5/++/7GMNPA/++4AE3/+++=QMOQF2++2:R.R8!!O;;;I;;;N##,H..SB0BOLKLQ:/+++2AE31+++1FPMH=+++13AOMPNL=+++25ELMG#!#<<<<<<<>G..",
+    ".SFFS.R,9IJJIC,<<@KIII,D=+3BLJJJJPR52++++=QOH7+++4AG=1+++/BPOPA+++2:S.S#!!O;;JSJ;;N###@.QE6$&AEPOF5+++/3AQ=1++++0AA7&++/34ELO.QP=+++2:OKP>8,!<<<<##<<ES.",
+    "......S8,OOI;9!!!CPJJOSA/+2BSSQSSSSB42++++787+++14ASA41++++7==/++/3:R.R#!!O;;N8M;;N###@QF7%)++0886&+++34ARA42++++%$)*+134=OJO..S=+++2:OLR>@@!<<<,!!#<>S.",
+    ".......SQQJI;!!!!HQPQB5/++/6,,,,,0BGA32+++'&'++134APO:31+++'''++/34:S.R#!!O;;N,M;;O,##@SE/1+++*&&&++/34:ONO:41+++&)*+2345ELKQ..S=+++2:OLS>88!<<<D8!#<>S.",
+    "........SOJI;9#9CQPNO:3/+++++++'+2:QB5431111123445FOLE4321111113344BP.S#!!O;IN,M;IN###@QG53311111113444BLNLE432111123444AMJMQ..S=+++3:OLQ>#!!<<,D@!#<>S.",
+    ".......Q8JIIII;;;LHPP:432222222224:SLB54444444445BLNJMB54444444444=NM.R,!!DLLD,DLLD##,DSME:44444444444=NJNJMB5444444444ANJKQ..SE01224:OLQF<,<<<<,#!,<>S.",
+    ".......D!9IMSPJI;;#8QA444444444444=SJLP=5444445=EMJPNJME=4444444:BOKM.QD#!#88#!,8@,##@NPKLP=54444444:AOJMQNJME=444444=ENJKO...QB24444ANM.QE><<<<<#,<>S..",
+    ".......H#,NQ..PK;!!DQOBBBBBBBBBBBBONLJKNEBBBBBENLJLQPLJLOEBBBBBBHLJJP.PO8###!!!!####8PNQNJKMFBBBBBBBHLJLP.QMJLNEBBBBBOLJJNQ...SHBBBBBOKO.SFEF>>>><>>F...",
+    ".......RDHQ....Q,!@QPJKKKKKKKKKKKKKNPNJJKKKKKKKJJMQ..QLJJKKKKKKKKJKOQ..QQ@#########@HOP.QOKJKKKKKKKKKJKP...QOJJKKKKKKJJLOQ....QOKKKKKJLS.SB>ESSSEEEGS...",
+    "........S......Q@@S.QLJJJJJJJJJJJJLP.QOMJJJJJJJMOP....POMJJJJJJJKOP.....SSD8#####8EQQQ...QOOKJJJJJJJKOP......ONJJJJJJLOP.......QMJJJJKP...RRR...SB>ES...",
+    "................SQ...QSQQQQQQQQSQSS....SSSSSQQSS........QSSSSQSSSS.......SSSSSSSSSSS.......RQSQQQQQSSQ........SSSQSSQSS.........SSSQSS...........RRR....",
+};
+
 
 static const char *SPR_BLOCK[16] = {
     "NNNNNNNNNNNNNNNN",
@@ -2469,12 +2524,40 @@ static void drawSprite(int px, int py, const char **spr, unsigned cm, unsigned c
     character rather than tinted at draw time. one table, filled once,
     turns a character straight into a pixel.                        */
 static unsigned artLut[128];
+static unsigned logoLut[128];
 
 static void artInit(void)
 {
     int i;
     for (i = 0; i < 128; i++) artLut[i] = 0xFF00FF;
     for (i = 0; i < ART_NPAL; i++) artLut[(unsigned char)ART_KEY[i]] = ART_PAL[i];
+    for (i = 0; i < 128; i++) logoLut[i] = 0xFF00FF;
+    for (i = 0; i < LOGO_NPAL; i++) logoLut[(unsigned char)ART_KEY[i]] = LOGO_PAL[i];
+}
+
+/*  the logo blown up by a whole number, centred on cx. a fractional
+    scale would put ragged edges on artwork whose whole character is
+    its square dots, so the caller picks 3 or 4 and never between. */
+static void drawLogo(int cx, int top, int sc)
+{
+    int r, c, sx, sy, x0 = cx - LOGO_W * sc / 2;
+    for (r = 0; r < LOGO_H; r++) {
+        const char *row = LOGO_PX[r];
+        for (c = 0; c < LOGO_W; c++) {
+            unsigned col;
+            if (row[c] == '.') continue;
+            col = logoLut[(unsigned char)row[c]];
+            for (sy = 0; sy < sc; sy++) {
+                int yy = top + r * sc + sy;
+                if (yy < 0 || yy >= SCR_H) continue;
+                for (sx = 0; sx < sc; sx++) {
+                    int xx = x0 + c * sc + sx;
+                    if (xx < 0 || xx >= SCR_W) continue;
+                    gPix[yy * SCR_W + xx] = col;
+                }
+            }
+        }
+    }
 }
 
 /*  bx, by is the actor box on screen and the frame places itself from
@@ -4256,8 +4339,9 @@ static void drawOverlay(void)
             if (i & 1) drawArt(x, y, FOE_WALK[0][(gFrame / 7 + i) & 1], 1);
             else       drawArt(x, y, PLR_WALK[(gFrame / 5 + i) % 6], 0);
         }
-        drawText("EGGnSOYMILK", 0, HUD_H + 74, 0x30507A, 1, 1);   /* drop shadow */
-        drawText("EGGnSOYMILK", 0, HUD_H + 70, 0xFFD060, 1, 1);
+        /*  four screen pixels to the dot puts the logo at 608x120,
+            which leaves a clear thirty above the first menu row.   */
+        drawLogo(SCR_W / 2, HUD_H + 42, 4);
         for (i = 0; i < TITLE_ROWS; i++)
             drawText(items[i], 0, HUD_H + 190 + i * 32,
                      (i == gMenuSel) ? 0xFFFFFF : 0x8090B0, 0, 1);

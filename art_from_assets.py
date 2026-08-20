@@ -1,7 +1,7 @@
-"""Re-sample src2.png, the character reference sheet, into the sprite
-tables that game.c carries.
+"""Re-sample the drawings in assets/ into the tables that game.c carries:
+the character sheet (src2.png) and the title logo (src_title.png).
 
-    python sprites_from_sheet.py     ->  writes art.c
+    python art_from_assets.py     ->  writes art.c
 
 Paste the result over the "character art" block in game.c. Needs pillow
 and numpy; nothing else in the project does, which is why this is a
@@ -240,6 +240,74 @@ w('')
 w('/*  a walk cycle worth of frames, in sheet order.                   */')
 w('static const short PLR_WALK[6] = {')
 w('    AF_W0, AF_W1, AF_W2, AF_W3, AF_W4, AF_W5')
+w('};')
+
+# ------------------------------------------------------- the title logo
+# drawn on a far chunkier grid than the characters - about thirteen
+# screen pixels to the dot - and it keeps a palette of its own, so
+# folding its golds in cannot cost the sprites any colours.
+LOGO_W, LOGO_H, LOGO_N = 152, 30, 48
+
+logo = Image.open(J('assets', 'src_title.png')).convert('RGBA')
+la = np.array(logo)
+lys, lxs = np.where(la[:, :, 3] >= 200)
+lc = logo.crop((lxs.min(), lys.min(), lxs.max() + 1, lys.max() + 1))
+lr = np.array(lc.resize((LOGO_W, LOGO_H), Image.BOX))
+lr[:, :, 3] = np.where(lr[:, :, 3] >= 110, 255, 0)
+LX = lr[:, :, :3][lr[:, :, 3] > 0].astype(np.float64)
+
+lstrip = Image.fromarray(LX.reshape(1, -1, 3).astype(np.uint8), 'RGB')
+lq = lstrip.quantize(colors=LOGO_N, method=Image.MEDIANCUT, dither=Image.NONE)
+LC = np.array(lq.getpalette()[:LOGO_N * 3]).reshape(LOGO_N, 3).astype(np.float64)
+for _ in range(60):
+    dd = ((LX[:, None, :] - LC[None, :, :]) ** 2).sum(2)
+    ll = dd.argmin(1)
+    nn = LC.copy()
+    for i in range(LOGO_N):
+        mm = ll == i
+        if mm.any():
+            nn[i] = LX[mm].mean(0)
+    if np.abs(nn - LC).max() < 0.3:
+        LC = nn
+        break
+    LC = nn
+LPAL = np.clip(np.round(LC), 0, 255).astype(np.uint8)
+dd = ((LX[:, None, :] - LPAL.astype(float)[None, :, :]) ** 2).sum(2)
+print('logo palette %d colours, mean abs error %.2f'
+      % (LOGO_N, np.abs(LPAL[dd.argmin(1)].astype(int) - LX).mean()))
+
+lrows = []
+for y in range(LOGO_H):
+    line = []
+    for x in range(LOGO_W):
+        if lr[y, x, 3] == 0:
+            line.append('.')
+        else:
+            c = lr[y, x, :3].astype(int)
+            line.append(KEY[int(((c[None, :] - LPAL.astype(int)) ** 2).sum(1).argmin())])
+    lrows.append(''.join(line))
+
+w('')
+w('/* ------------------------------------------------------------------ */')
+w('/*  title logo                                                         */')
+w('/* ------------------------------------------------------------------ */')
+w('/*  the same treatment as the characters, off assets/src_title.png. it')
+w('    is drawn on a far chunkier grid - some thirteen screen pixels to')
+w('    the dot - so it is held at its own size and blown up by a whole')
+w('    number where it is drawn, and it keeps a palette of its own so')
+w('    its golds cannot cost the sprites any of theirs.               */')
+w('#define LOGO_W %d' % LOGO_W)
+w('#define LOGO_H %d' % LOGO_H)
+w('#define LOGO_NPAL %d' % LOGO_N)
+w('static const unsigned LOGO_PAL[LOGO_NPAL] = {')
+for i in range(0, LOGO_N, 6):
+    w('    ' + ', '.join('0x%06X' % (int(LPAL[j][0]) << 16 | int(LPAL[j][1]) << 8 | int(LPAL[j][2]))
+                         for j in range(i, min(i + 6, LOGO_N))) + ',')
+w('};')
+w('/*  indexed by ART_KEY, exactly as the character frames are.        */')
+w('static const char *LOGO_PX[LOGO_H] = {')
+for r in lrows:
+    w('    "%s",' % r)
 w('};')
 
 src = '\n'.join(o) + '\n'
