@@ -1275,6 +1275,7 @@ typedef struct {
     int   squash;       /* flattened by a stomp, springing back    */
     int   spring;       /* frames a jump still catches the spring  */
     int   temper;       /* 0 = wanderer .. 2 = hunter             */
+    int   foe;          /* 1 = enemy, 0 = the player              */
 } Actor;
 
 enum { FM_PATROL, FM_CHASE };
@@ -2866,6 +2867,7 @@ static void loadStage(int idx)
     gPlayer.invuln = INVULN;
     gLife = LIFE_MAX;                     /* hearts refill every stage */
     for (i = 0; i < gFoeCount; i++) {
+        gFoe[i].foe    = 1;              /* saws are walls to these */
         gFoe[i].think  = 30 + i * 17;
         gFoe[i].temper = (i + idx) % 3;   /* wanderer .. hunter */
         gFoe[i].mode   = FM_PATROL;
@@ -2886,6 +2888,18 @@ static void restartStage(void)
 /* ------------------------------------------------------------------ */
 /*  physics                                                            */
 /* ------------------------------------------------------------------ */
+/*  the player has to jump a saw; a foe simply may not walk into one.
+    turning it round when it sees one ahead is not enough on its own -
+    it steers again a few frames later, gets kicked into one, or drifts
+    in through the air - so the tile is made a wall for foes here, where
+    every one of those routes has to pass. a foe that came down onto a
+    bed of them from above is let through, otherwise it would be walled
+    in on both sides and stand in the teeth for good.                 */
+static int sawWall(Actor *a, char to, char from)
+{
+    return a->foe && to == '^' && from != '^';
+}
+
 static void moveX(Actor *a)
 {
     float nx = a->x + a->vx;
@@ -2897,7 +2911,9 @@ static void moveX(Actor *a)
             hand seam, and a cast would round that towards zero and
             read the wrong column - floor it.                       */
         int px = (a->vx > 0) ? (int)floorf(nx) + AW - 1 : (int)floorf(nx);
-        if (isSolid(tileAt(px >> 5, py >> 5))) {
+        int cx = (a->vx > 0) ? (int)a->x + AW - 1 : (int)a->x;
+        char t = tileAt(px >> 5, py >> 5);
+        if (isSolid(t) || sawWall(a, t, tileAt(cx >> 5, py >> 5))) {
             int tx = px >> 5;
             nx = (a->vx > 0) ? (float)(tx * TILE - AW) : (float)((tx + 1) * TILE);
             a->vx = 0;
@@ -3756,11 +3772,15 @@ static void updateFoe(Actor *e, int idx)
         int footY  = (int)e->y + AH + 4;
         char ahead = tileAt(aheadX >> 5, ((int)e->y + AH / 2) / TILE);
         char below = tileAt(aheadX >> 5, footY / TILE);
+        /*  one that came down onto a bed of saws keeps its heading and
+            walks out of it - turning round in there would only bounce
+            it between the teeth it is already standing in.           */
+        int  onSaw = tileAt(tx, ty) == '^';
         if (e->drop > 0) e->drop--;
         /*  a wall always turns it round. at a ledge the choice is made
             once and then stuck to - re-rolling every frame meant it
             always chickened out before actually reaching the edge.     */
-        if (isSolid(ahead) || ahead == '^') { e->dir = -e->dir; e->think = 12; e->drop = 0; }
+        if (!onSaw && (isSolid(ahead) || ahead == '^')) { e->dir = -e->dir; e->think = 12; e->drop = 0; }
         else if (e->onground && !isSolid(below) && !isOneWay(below) && e->drop == 0) {
             if (e->mode == FM_PATROL || (rand() % 100) < 55) { e->dir = -e->dir; e->think = 12; }
             else e->drop = 30;              /* hunter commits to the fall */
